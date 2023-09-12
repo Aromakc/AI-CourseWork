@@ -3,6 +3,8 @@ import PuzzleBox from './component/PuzzleBox';
 import { useState, useRef } from 'react';
 import { ArcherContainer, ArcherElement } from 'react-archer';
 
+let nodeCount = 1;
+
 const EightPuzzle = () => {
   const myRef = useRef(null);
 
@@ -24,14 +26,13 @@ const EightPuzzle = () => {
     parentId: '',
     action: '',
   };
-  let nodeCount = 1;
 
   const [currentLevel, setCurrentLevel] = useState(0);
-  const [stateArray, setStateArray] = useState([[initialState]]);
+  const [currentState, setCurrentState] = useState([[initialState]]);
   const [isGoalState, setIsGoalState] = useState(false);
+  const queue = []; // empty array to store new states for new depth level
 
-  //solving using BFS which performs transition such as u, l, d, r
-
+  // Find the position of zero in the array and return the index
   const findZero = (data) => {
     for (let i = 0; i < data.length; i++) {
       const row = data[i];
@@ -45,8 +46,8 @@ const EightPuzzle = () => {
   };
 
   const checkRecursive = (newData, currentArray) => {
-    // check if new data is in previous state
-    for (const state of stateArray) {
+    // check if new data is in previous states
+    for (const state of currentState) {
       for (const item of state) {
         if (JSON.stringify(item.data) === JSON.stringify(newData)) {
           return true;
@@ -54,13 +55,12 @@ const EightPuzzle = () => {
       }
     }
 
-    // check if new data is in current state
+    // check if new data is in new formed states
     for (const item of currentArray) {
       if (JSON.stringify(item.data) === JSON.stringify(newData)) {
         return true;
       }
     }
-
     return false;
   };
 
@@ -68,80 +68,82 @@ const EightPuzzle = () => {
     return JSON.stringify(data) === JSON.stringify(goalState);
   };
 
+  const performAction = (state, i, j, action) => {
+    const newState = { ...state }; // copy the state to prevent mutation
+    const newData = JSON.parse(JSON.stringify(newState.data));
+
+    // swapping the zero with the number in the direction
+    switch (action) {
+      case 'u':
+        if (i > 0) {
+          [newData[i][j], newData[i - 1][j]] = [newData[i - 1][j], 0];
+        }
+        break;
+      case 'l':
+        if (j > 0) {
+          [newData[i][j], newData[i][j - 1]] = [newData[i][j - 1], 0];
+        }
+        break;
+      case 'd':
+        if (i < 2) {
+          [newData[i][j], newData[i + 1][j]] = [newData[i + 1][j], 0];
+        }
+        break;
+      case 'r':
+        if (j < 2) {
+          [newData[i][j], newData[i][j + 1]] = [newData[i][j + 1], 0];
+        }
+        break;
+      default:
+        break;
+    }
+
+    if (checkRecursive(newData, queue)) {
+      newState.isRecursive = true;
+      return false;
+    }
+    newState.data = newData;
+    newState.action = action;
+    newState.id = `${++nodeCount}`;
+    newState.parentId = `${state.id}`;
+    newState.currentLevel = currentLevel + 1;
+
+    queue.push(newState);
+
+    if (checkGoalState(newData)) {
+      newState.isGoal = true;
+      console.log(`Goal State Reached at id ${newState.id}`);
+      setIsGoalState(true);
+      return true;
+    }
+    return false;
+  };
+
   const performStateSpaceSearch = () => {
-    if (isGoalState) return;
     const newLevel = currentLevel + 1;
     const prevActiveStates =
-      [...stateArray[currentLevel]]?.filter((state) => !state.isRecursive) ||
+      [...currentState[currentLevel]]?.filter((state) => !state.isRecursive) ||
       [];
 
-    const newStateArray = []; // empty array to store new states for new depth level
-
-    const performAction = (state, i, j, action) => {
-      const newState = { ...state };
-      const newData = JSON.parse(JSON.stringify(newState.data));
-
-      switch (action) {
-        case 'u':
-          if (i === 0) return;
-          newData[i][j] = newData[i - 1][j];
-          newData[i - 1][j] = 0;
-          break;
-        case 'l':
-          if (j === 0) return;
-          newData[i][j] = newData[i][j - 1];
-          newData[i][j - 1] = 0;
-          break;
-        case 'd':
-          if (i === 2) return;
-          newData[i][j] = newData[i + 1][j];
-          newData[i + 1][j] = 0;
-          break;
-        case 'r':
-          if (j === 2) return;
-          newData[i][j] = newData[i][j + 1];
-          newData[i][j + 1] = 0;
-          break;
-        default:
-          break;
-      }
-
-      if (checkRecursive(newData, newStateArray)) {
-        newState.isRecursive = true;
-        // return;
-      }
-      newState.data = newData;
-      newState.action = action;
-      // newState.id = `${newState.id}${nodeCount++}`;
-      newState.id = `${state.id}${newStateArray.length}`;
-      newState.parentId = `${state.id}`;
-      newState.currentLevel = newLevel;
-
-      newStateArray.push(newState);
-
-      if (checkGoalState(newData)) {
-        newState.isGoal = true;
-        console.log(`Goal State Reached at id ${newState.id}`);
-        setIsGoalState(true);
-      }
-    };
-
-    prevActiveStates.forEach((state) => {
+    for (const state of prevActiveStates) {
       const { data } = state;
       const { i, j } = findZero(data);
+      let isGoal = false;
+      for (const direction of ['u', 'l', 'd', 'r']) {
+        isGoal = performAction(state, i, j, direction);
+      }
+      if (isGoal) {
+        break;
+      }
+    }
 
-      performAction(state, i, j, 'u');
-      performAction(state, i, j, 'l');
-      performAction(state, i, j, 'd');
-      performAction(state, i, j, 'r');
+    setCurrentState((prevState) => {
+      const newState = [...prevState];
+      newState[newLevel] = [...queue];
+      return newState;
     });
-
-    setStateArray((prevState) => {
-      prevState[newLevel] = newStateArray;
-      return [...prevState];
-    });
-
     setCurrentLevel(newLevel);
+    console.log(queue);
   };
 
   useEffect(() => {
@@ -155,7 +157,12 @@ const EightPuzzle = () => {
       <h1 className="text-2xl text-center font-bold ">
         Eight Puzzle Problem State Space Tree
       </h1>
-
+      <button
+        className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+        // onClick={performStateSpaceSearch}
+      >
+        Play
+      </button>
       <ArcherContainer
         strokeColor="gray"
         noCurves={false}
@@ -163,7 +170,7 @@ const EightPuzzle = () => {
         endMarker={false}
       >
         <div className="flex flex-col justify-center items-center">
-          {stateArray.map((items, parentIndex) => (
+          {currentState.map((items, parentIndex) => (
             <div key={parentIndex} className="flex gap-4">
               {items.map((item, childIndex) => (
                 <div
@@ -183,7 +190,10 @@ const EightPuzzle = () => {
                       },
                     ]}
                   >
-                    <PuzzleBox state={item} ref={myRef} />
+                    <div className="flex flex-col justify-center items-center">
+                      <PuzzleBox state={item} ref={myRef} />
+                      <text className="text-sm font-medium">{item.id}</text>
+                    </div>
                   </ArcherElement>
                 </div>
               ))}
