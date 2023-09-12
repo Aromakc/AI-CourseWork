@@ -5,7 +5,7 @@ import { ArcherContainer, ArcherElement } from 'react-archer';
 
 let nodeCount = 1;
 
-const EightPuzzle = () => {
+const EightPuzzleDFS = () => {
   const myRef = useRef(null);
 
   const goalState = [
@@ -132,7 +132,6 @@ const EightPuzzle = () => {
         isGoal = performAction(state, i, j, direction);
       }
       if (isGoal) {
-        nodeCount = 1;
         break;
       }
     }
@@ -204,4 +203,4 @@ const EightPuzzle = () => {
   );
 };
 
-export default EightPuzzle;
+export default EightPuzzleDFS;
