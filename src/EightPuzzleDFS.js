@@ -4,6 +4,22 @@ import { useState, useRef } from 'react';
 import { ArcherContainer, ArcherElement } from 'react-archer';
 
 let nodeCount = 1;
+let stack = []; // Stack for DFS
+const initialState = {
+  data: [
+    [2, 8, 3],
+    [1, 6, 4],
+    [7, 0, 5],
+  ],
+  isRecursive: false,
+  isGoal: false,
+  level: 0,
+  id: '1',
+  parentId: '',
+  action: '',
+  isVisited: false,
+};
+stack = [initialState];
 
 const EightPuzzleDFS = () => {
   const myRef = useRef(null);
@@ -13,25 +29,12 @@ const EightPuzzleDFS = () => {
     [2, 6, 4],
     [1, 7, 5],
   ];
-  const initialState = {
-    data: [
-      [2, 8, 3],
-      [1, 6, 4],
-      [7, 0, 5],
-    ],
-    isRecursive: false,
-    isGoal: false,
-    currentLevel: 0,
-    id: '1',
-    parentId: '',
-    action: '',
-  };
 
-  const queue = []; // empty array to store new states for new depth level
-  const [currentLevel, setCurrentLevel] = useState(0);
+  const maxLevel = 4;
   const [currentState, setCurrentState] = useState([[initialState]]);
   const [isGoalState, setIsGoalState] = useState(false);
-
+  const [id, setId] = useState(1);
+  
   // Find the position of zero in the array and return the index
   const findZero = (data) => {
     for (let i = 0; i < data.length; i++) {
@@ -75,30 +78,30 @@ const EightPuzzleDFS = () => {
     // swapping the zero with the number in the direction
     switch (action) {
       case 'u':
-        if (i > 0) {
-          [newData[i][j], newData[i - 1][j]] = [newData[i - 1][j], 0];
-        }
+        if (i === 0) return;
+        newData[i][j] = newData[i - 1][j];
+        newData[i - 1][j] = 0;
         break;
       case 'l':
-        if (j > 0) {
-          [newData[i][j], newData[i][j - 1]] = [newData[i][j - 1], 0];
-        }
+        if (j === 0) return;
+        newData[i][j] = newData[i][j - 1];
+        newData[i][j - 1] = 0;
         break;
       case 'd':
-        if (i < 2) {
-          [newData[i][j], newData[i + 1][j]] = [newData[i + 1][j], 0];
-        }
+        if (i === 2) return;
+        newData[i][j] = newData[i + 1][j];
+        newData[i + 1][j] = 0;
         break;
       case 'r':
-        if (j < 2) {
-          [newData[i][j], newData[i][j + 1]] = [newData[i][j + 1], 0];
-        }
+        if (j === 2) return;
+        newData[i][j] = newData[i][j + 1];
+        newData[i][j + 1] = 0;
         break;
       default:
         break;
     }
 
-    if (checkRecursive(newData, queue)) {
+    if (checkRecursive(newData, stack)) {
       newState.isRecursive = true;
       return false;
     }
@@ -106,60 +109,91 @@ const EightPuzzleDFS = () => {
     newState.action = action;
     newState.id = `${++nodeCount}`;
     newState.parentId = `${state.id}`;
-    newState.currentLevel = currentLevel + 1;
+    newState.level = state.level + 1;
+    newState.isVisited = false;
 
-    queue.push(newState);
-
-    if (checkGoalState(newData)) {
+    const goal = checkGoalState(newData);
+    if (goal) {
       newState.isGoal = true;
-      console.log(`Goal State Reached at id ${newState.id}`);
       setIsGoalState(true);
-      return true;
     }
-    return false;
+    stack.push(newState);
+
+    // Add the new formed state to the currentState array
+    setCurrentState((prevState) => {
+      let tempState = [...prevState];
+      if (!tempState[newState.level]) {
+        tempState[newState.level] = []; // create sub-array if it doesn't exist
+      }
+      tempState[newState.level].push(newState);
+      return tempState;
+    });
+    return goal;
   };
 
-  const performStateSpaceSearch = () => {
-    const newLevel = currentLevel + 1;
-    const prevActiveStates =
-      [...currentState[currentLevel]]?.filter((state) => !state.isRecursive) ||
-      [];
-    for (const state of prevActiveStates) {
-      const { data } = state;
+  const performStateSpaceSearchDFS = () => {
+    console.log('stack length', stack.length);
+    console.log('stack before action', stack);
+    let lastStackIndex = stack.length - 1;
+    let TOS = stack[lastStackIndex];
+
+    if (TOS.isRecursive || TOS.level === maxLevel) {
+      TOS.isVisited = true;
+      console.log('Recursive state found');
+      stack.pop();
+      console.log('Stack after pop', stack);
+      return;
+    }
+
+    if (
+      stack.length > 0 &&
+      TOS.isVisited === false &&
+      TOS.level <
+      
+      
+      maxLevel &&
+      TOS.isRecursive === false
+    ) {
+      stack[lastStackIndex].isVisited = true;
+      const { data } = TOS;
       const { i, j } = findZero(data);
       let isGoal = false;
-      for (const direction of ['u', 'l', 'd', 'r']) {
-        isGoal = performAction(state, i, j, direction);
+      for (const direction of ['d', 'r', 'u', 'l']) {
+        isGoal = performAction(TOS, i, j, direction);
+        if (isGoal) {
+          break;
+        }
       }
-      if (isGoal) {
-        break;
-      }
+      console.log('Stack after actions', stack);
+      return;
     }
-
-    setCurrentState((prevState) => {
-      const newState = [...prevState];
-      newState[newLevel] = [...queue];
-      return newState;
-    });
-    setCurrentLevel(newLevel);
-    console.log(queue);
+    if (stack.length === 0) {
+      console.log('Goal state not found');
+      return;
+    }
+    if (stack[lastStackIndex].isGoal) {
+      console.log('Goal state found');
+      setCurrentState((prevState) => {
+        const newState = [...prevState];
+        newState[stack[lastStackIndex].level] = [...stack];
+        return newState;
+      });
+      return;
+    }
   };
-
-  useEffect(() => {
-    if (!isGoalState) {
-      setTimeout(() => {
-        performStateSpaceSearch();
-      }, 1000);
-    }
-  }, [currentLevel, isGoalState]);
 
   return (
     <>
       <div className="flex flex-col">
         <h1 className="text-2xl text-center font-bold ">
-          Eight Puzzle Problem State Space Tree
+          Eight Puzzle Problem State Space Tree (DFS)
         </h1>
-
+        <button
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          onClick={performStateSpaceSearchDFS}
+        >
+          New
+        </button>
         <ArcherContainer
           strokeColor="gray"
           noCurves={false}
@@ -188,7 +222,7 @@ const EightPuzzleDFS = () => {
                       ]}
                     >
                       <div className="flex flex-col justify-center items-center">
-                        <PuzzleBox state={item} ref={myRef} />
+                        <PuzzleBox state={item} ref={myRef} algo ="DFS" />
                         <span className="text-sm font-semibold">{item.id}</span>
                       </div>
                     </ArcherElement>

@@ -2,10 +2,10 @@ import React, { useEffect } from 'react';
 import PuzzleBox from './component/PuzzleBox';
 import { useState, useRef } from 'react';
 import { ArcherContainer, ArcherElement } from 'react-archer';
-
+import { FaLongArrowAltRight } from 'react-icons/fa';
 let nodeCount = 1;
 
-const EightPuzzle = () => {
+const EightPuzzleA = () => {
   const myRef = useRef(null);
 
   const goalState = [
@@ -21,10 +21,12 @@ const EightPuzzle = () => {
     ],
     isRecursive: false,
     isGoal: false,
-    level: 0,
+    depth: 0,
     id: '1',
     parentId: '',
     action: '',
+    misplacedTiles: 0,
+    manhattanDistance: 0,
   };
 
   const queue = []; // empty array to store new states for new depth level
@@ -68,6 +70,20 @@ const EightPuzzle = () => {
     return JSON.stringify(data) === JSON.stringify(goalState);
   };
 
+  const calculateMisplacedTiles = (data) => {
+    let misplacedTiles = 0;
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      for (let j = 0; j < row.length; j++) {
+        const col = row[j];
+        if (col !== goalState[i][j]) {
+          misplacedTiles++;
+        }
+      }
+    }
+    return misplacedTiles;
+  };
+
   const performAction = (state, i, j, action) => {
     const newState = { ...state }; // copy the state to prevent mutation
     const newData = JSON.parse(JSON.stringify(newState.data));
@@ -106,8 +122,9 @@ const EightPuzzle = () => {
     newState.action = action;
     newState.id = `${++nodeCount}`;
     newState.parentId = `${state.id}`;
-    newState.level = currentLevel + 1;
-
+    newState.depth = currentLevel + 1;
+    newState.misplacedTiles = calculateMisplacedTiles(newState.data);
+    newState.manhattanDistance = newState.depth + newState.misplacedTiles;
     queue.push(newState);
 
     if (checkGoalState(newData)) {
@@ -121,18 +138,18 @@ const EightPuzzle = () => {
 
   const performStateSpaceSearch = () => {
     const newLevel = currentLevel + 1;
-    const prevActiveStates =
+    let prevActiveStates =
       [...currentState[currentLevel]]?.filter((state) => !state.isRecursive) ||
       [];
-    for (const state of prevActiveStates) {
-      const { data } = state;
-      const { i, j } = findZero(data);
-      let isGoal = false;
-      for (const direction of ['u', 'l', 'd', 'r']) {
-        isGoal = performAction(state, i, j, direction);
-      }
-      if (isGoal) {
-        nodeCount = 1;
+    prevActiveStates.sort((a, b) => a.manhattanDistance - b.manhattanDistance);
+
+    // Traversingonly one prevActiveStates having less heuristic
+    const { data } = prevActiveStates[0];
+    const { i, j } = findZero(data);
+    const actions = ['u', 'l', 'd', 'r'];
+    for (const action of actions) {
+      const goal = performAction(prevActiveStates[0], i, j, action);
+      if (goal) {
         break;
       }
     }
@@ -160,7 +177,24 @@ const EightPuzzle = () => {
         <h1 className="text-2xl text-center font-bold ">
           Eight Puzzle Problem State Space Tree
         </h1>
-
+        <h2 className="text-2xl m-2 text-center font-semibold">
+          A* Search Algorithm (Heuristic)
+        </h2>
+        <hr></hr>
+        <div className="flex flex-row justify-center m-4 space-x-5">
+          <div className="flex flex-col">
+            <span className="text-l font-semibold">Initial Node</span>
+            <PuzzleBox state={initialState} ref={myRef} />
+          </div>
+          <div className="flex justify-center items-center">
+            <FaLongArrowAltRight className="text-3xl" />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-l font-semibold">Goal Node</span>
+            <PuzzleBox state={{ data: goalState }} ref={myRef} />
+          </div>
+        </div>
+        <hr></hr>
         <ArcherContainer
           strokeColor="gray"
           noCurves={false}
@@ -189,8 +223,12 @@ const EightPuzzle = () => {
                       ]}
                     >
                       <div className="flex flex-col justify-center items-center">
-                        <PuzzleBox state={item} ref={myRef} algo="BFS" />
-                        <span className="text-sm font-semibold">{item.id}</span>
+                        <PuzzleBox state={item} algo = "A*" ref={myRef}/>
+
+                        <div className="flex flex-col py-1 px-2 m-1 rounded-lg bg-blue-300">
+                          <span className="text-sm font-semibold">{`id=${item.id}`}</span>
+                          <span className="text-sm font-semibold">{`f=${item.manhattanDistance}`}</span>
+                        </div>
                       </div>
                     </ArcherElement>
                   </div>
@@ -204,4 +242,4 @@ const EightPuzzle = () => {
   );
 };
 
-export default EightPuzzle;
+export default EightPuzzleA;

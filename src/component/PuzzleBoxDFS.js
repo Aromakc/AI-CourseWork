@@ -1,7 +1,7 @@
 import React from 'react';
 
-const PuzzleBox = React.forwardRef((props, ref) => {
-  const { algo, state: item } = props;
+const PuzzleBoxDFS = React.forwardRef((props, ref) => {
+  const item = props.state;
   const arr = item.data;
   const state = { isRecursive: item.isRecursive, isGoal: item.isGoal };
   return (
@@ -13,14 +13,10 @@ const PuzzleBox = React.forwardRef((props, ref) => {
               {row.map((col, j) => (
                 <td
                   key={j}
-                  title={
-                    algo === 'A*'
-                      ? `(g=${item.depth},h=${item.misplacedTiles},f=${item.manhattanDistance})`
-                      : `id=${item.id}`
-                  }
+                  title={`(h=${item.misplacedTiles},f=${item.manhattanDistance})`}
                   className={`
                     border-4
-                    px-2 
+                    px-2  
                     ${
                       state.isDead
                         ? 'border-red-500'
@@ -43,4 +39,4 @@ const PuzzleBox = React.forwardRef((props, ref) => {
   );
 });
 
-export default PuzzleBox;
+export default PuzzleBoxDFS;
